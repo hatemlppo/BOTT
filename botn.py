@@ -1,53 +1,38 @@
 import os
 import telebot
-from google import genai
-from google.genai import types
+from deep_translator import GoogleTranslator
 
-# جلب المفاتيح من إعدادات Railway
+# جلب توكن التليجرام فقط
 CH_TOKEN = os.getenv("CH_TOKEN")
-CH_GEMINI_KEY = os.getenv("CH_GEMINI_KEY")
 
-# إعداد البوت والذكاء الاصطناعي
+# إعداد البوت
 bot = telebot.TeleBot(CH_TOKEN)
-client = genai.Client(api_key=CH_GEMINI_KEY)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "✅ أهلاً بك! أنا بوت الترجمة الذكي.\nأرسل لي أي نص وسأقوم بترجمته فوراً (عربي ↔️ إنجليزي).")
+    bot.reply_to(message, "✅ أهلاً بك! أنا بوت ترجمة سريع ومجاني.\nأرسل لي أي نص وسأترجمه تلقائياً (عربي ↔️ إنجليزي).")
 
 @bot.message_handler(func=lambda message: True)
-def translate_message(message):
+def translate_text(message):
     try:
-        # صياغة الأمر للموديل
-        prompt = f"You are a professional translator. Translate the following text to Arabic if it's English, and to English if it's Arabic: {message.text}"
+        text = message.text
+        # تحديد المترجم: إذا كان النص عربي يترجمه لإنجليزي، والعكس صحيح
+        # سنستخدم مكتبة لاكتشاف اللغة أو ببساطة الترجمة الآلية
         
-        # الطريقة الأكثر استقراراً في 2026 لاستدعاء الموديل
-        response = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.3, # لجعل الترجمة أكثر دقة وأقل إبداعاً
-            )
-        )
-
-        if response.text:
-            bot.reply_to(message, response.text)
+        translator = GoogleTranslator(source='auto', target='en' if not any('\u0600' <= c <= '\u06FF' for c in text) else 'ar')
+        
+        # إذا كان النص يحتوي على حروف عربية، نترجمه للإنجليزية
+        if any('\u0600' <= c <= '\u06FF' for c in text):
+            translated = GoogleTranslator(source='ar', target='en').translate(text)
         else:
-            bot.reply_to(message, "⚠️ لم أتمكن من استخراج ترجمة للنص.")
+            # إذا كان النص إنجليزي، نترجمه للعربية
+            translated = GoogleTranslator(source='en', target='ar').translate(text)
+
+        bot.reply_to(message, translated)
 
     except Exception as e:
-        error_msg = str(e)
-        print(f"Detailed Error: {error_msg}")
-        
-        if "429" in error_msg:
-            bot.reply_to(message, "⚠️ الطلبات كثيرة حالياً. انتظر دقيقة وجرب مجدداً.")
-        else:
-            # محاولة أخيرة باستخدام موديل بديل إذا فشل 1.5
-            try:
-                response = client.models.generate_content(model="gemini-1.5-pro", contents=prompt)
-                bot.reply_to(message, response.text)
-            except:
-                bot.reply_to(message, "❌ حدث خطأ فني. تأكد من شحن رصيد الـ API أو صحة المفتاح.")
+        print(f"Error: {e}")
+        bot.reply_to(message, "⚠️ عذراً، حدث خطأ أثناء الترجمة.")
 
-print("Bot is live on Railway...")
+print("Offline Translation Bot is running...")
 bot.polling(none_stop=True)
