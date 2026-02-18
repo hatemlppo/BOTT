@@ -1,27 +1,30 @@
 import os
 import telebot
-import google.generativeai as genai
+from google import genai # المكتبة الجديدة لعام 2026
 
-# جلب المفاتيح من إعدادات السيرفر (Environment Variables)
+# جلب المفاتيح
 CH_TOKEN = os.getenv("CH_TOKEN")
 CH_GEMINI_KEY = os.getenv("CH_GEMINI_KEY")
 
-# إعداد البوت والذكاء الاصطناعي باستخدام المتغيرات الصحيحة
+# إعداد البوت والذكاء الاصطناعي
 bot = telebot.TeleBot(CH_TOKEN)
-genai.configure(api_key=CH_GEMINI_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+client = genai.Client(api_key=CH_GEMINI_KEY) # الطريقة الجديدة للتعريف
 
 @bot.message_handler(func=lambda message: True)
 def translate_message(message):
     try:
-        # أمر ذكي للترجمة بناءً على اللغة المكتوبة
-        prompt = f"Translate this text: '{message.text}'. If it's Arabic, translate to English. If it's English or any other language, translate to Arabic. Keep it natural."
+        # استخدام موديل gemini-2.0-flash (الأحدث والأكثر استقراراً في 2026)
+        prompt = f"Translate to Arabic if English, and vice versa: {message.text}"
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=prompt
+        )
+        
         bot.reply_to(message, response.text)
     except Exception as e:
         print(f"Error: {e}")
-        bot.reply_to(message, "عذراً، حدث خطأ أثناء معالجة الترجمة.")
+        bot.reply_to(message, "عذراً، حدث خطأ في الترجمة. جرب مرة أخرى.")
 
-print("Bot is running...")
+print("Bot is running perfectly on Railway...")
 bot.polling()
